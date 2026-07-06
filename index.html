@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>背經總複習 - 遊戲測試端</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body class="bg-[#F4F1EA] text-[#2C3E50] font-sans h-screen p-4 flex gap-4">
+
+  <div class="flex-1 bg-white rounded-2xl shadow-sm p-6 border border-[#E6E2D8] flex flex-col justify-between">
+    <div>
+      <h2 class="text-xl font-bold border-b pb-2 mb-4 text-[#34495E]">🖥️ 主持人大螢幕</h2>
+      
+      <div id="host-lobby">
+        <button id="btn-create-room" class="bg-[#4A90E2] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#357ABD] transition w-full">
+          創建新遊戲房間 (PIN: 8888)
+        </button>
+        <div class="mt-6">
+          <p class="font-medium text-gray-500">已加入的玩家：</p>
+          <ul id="host-player-list" class="mt-2 space-y-1 text-lg font-bold text-[#76A5AF]">
+            <li class="text-gray-400 font-normal text-sm">等待玩家加入...</li>
+          </ul>
+        </div>
+        <button id="btn-start-game" class="mt-6 bg-[#76A5AF] text-white px-6 py-3 rounded-xl font-bold w-full hidden">
+          所有人到齊，開始遊戲！
+        </button>
+      </div>
+
+      <div id="host-game" class="hidden">
+        <div class="bg-[#F8F9FA] p-4 rounded-xl border mb-4">
+          <p class="text-xs text-gray-400 font-bold tracking-wider">QUESTION</p>
+          <h1 id="host-question-text" class="text-2xl font-bold mt-1 text-[#2C3E50]">題目加載中...</h1>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-sm text-white">
+          <div class="bg-[#E06666] p-3 rounded-lg font-bold">🟥 A: <span id="opt-a"></span></div>
+          <div class="bg-[#4A90E2] p-3 rounded-lg font-bold">🟦 B: <span id="opt-b"></span></div>
+          <div class="bg-[#F3B344] p-3 rounded-lg font-bold">🟨 C: <span id="opt-c"></span></div>
+          <div class="bg-[#76A5AF] p-3 rounded-lg font-bold">🟩 D: <span id="opt-d"></span></div>
+        </div>
+        <div class="mt-6 bg-gray-100 p-4 rounded-xl">
+          <p class="font-bold text-gray-600">📥 即時作答動態：</p>
+          <ul id="host-answer-log" class="text-sm mt-2 space-y-1 text-gray-500"></ul>
+        </div>
+      </div>
+    </div>
+    <div class="text-xs text-gray-400 text-center">背經總複習 - 主持人端</div>
+  </div>
+
+  <div class="w-[400px] bg-[#2C3E50] text-white rounded-2xl shadow-lg p-6 flex flex-col justify-between">
+    <div>
+      <h2 class="text-xl font-bold border-b border-gray-700 pb-2 mb-4 text-gray-300">📱 玩家手機端</h2>
+      
+      <div id="player-login" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-400 mb-1">遊戲 PIN 碼</label>
+          <input id="input-pin" type="text" value="8888" class="w-full bg-[#34495E] border border-gray-600 rounded-xl px-4 py-3 font-bold text-xl tracking-widest text-center text-white focus:outline-none focus:border-[#4A90E2]">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-400 mb-1">玩家暱稱 Nickname</label>
+          <input id="input-name" type="text" placeholder="例如：約翰" class="w-full bg-[#34495E] border border-gray-600 rounded-xl px-4 py-3 font-bold text-white focus:outline-none focus:border-[#4A90E2]">
+        </div>
+        <button id="btn-join-room" class="w-full bg-[#F3B344] text-[#2C3E50] py-3 rounded-xl font-bold text-lg hover:bg-[#dfa237] transition">
+          加入房間
+        </button>
+      </div>
+
+      <div id="player-wait" class="hidden text-center py-12">
+        <div class="animate-pulse text-4xl mb-4">⏳</div>
+        <p class="text-lg font-bold">成功加入房間！</p>
+        <p class="text-sm text-gray-400 mt-2">請看前方大螢幕，等待主持人開始...</p>
+      </div>
+
+      <div id="player-game" class="hidden h-full flex flex-col justify-center gap-3 py-4">
+        <p class="text-center text-sm text-gray-400 font-bold mb-2">請看大螢幕題目，在此處點選顏色答案：</p>
+        <button onclick="submitAnswer('A')" class="w-full bg-[#E06666] py-6 rounded-2xl font-bold text-2xl active:scale-95 transition">🟥</button>
+        <button onclick="submitAnswer('B')" class="w-full bg-[#4A90E2] py-6 rounded-2xl font-bold text-2xl active:scale-95 transition">🟦</button>
+        <button onclick="submitAnswer('C')" class="w-full bg-[#F3B344] py-6 rounded-2xl font-bold text-2xl active:scale-95 transition">🟨</button>
+        <button onclick="submitAnswer('D')" class="w-full bg-[#76A5AF] py-6 rounded-2xl font-bold text-2xl active:scale-95 transition">🟩</button>
+        <p id="player-status" class="text-center text-sm text-yellow-400 font-bold mt-2"></p>
+      </div>
+    </div>
+    <div id="player-footer-name" class="text-xs text-gray-500 text-center">未登入</div>
+  </div>
+
+  <script>
+    // 💡 關鍵步驟：這裡要替換成你剛剛在 Render 拿到的網址！
+    const CLOUD_URL = 'https://bei-jing-zong-fu-xi.onrender.com';
+    const socket = io(CLOUD_URL);
+
+    const ROOM_PIN = '8888';
+    const questions = [
+      { q: "「神愛世人，甚至將祂的獨生子賜給他們...」後面接哪一句？", a: "叫一切信祂的", b: "不至滅亡", c: "反得永生", d: "以上皆是", correct: "D" },
+      { q: "新約聖經的第一卷書是什麼？", a: "馬可福音", b: "馬太福音", c: "路加福音", d: "約翰福音", correct: "B" }
+    ];
+    let currentQIndex = 0;
+
+    // --- 主持人端邏輯 ---
+    document.getElementById('btn-create-room').addEventListener('click', () => {
+      socket.emit('createRoom', ROOM_PIN);
+      document.getElementById('btn-create-room').disabled = true;
+      document.getElementById('btn-create-room').innerText = `房間 ${ROOM_PIN} 已在雲端建立！`;
+      document.getElementById('btn-create-room').className = "bg-green-600 text-white px-6 py-3 rounded-xl font-bold w-full cursor-not-allowed";
+    });
+
+    socket.on('playerJoined', (players) => {
+      const list = document.getElementById('host-player-list');
+      list.innerHTML = players.map(p => `<li>👤 ${p.nickname}</li>`).join('');
+      if(players.length > 0) {
+        document.getElementById('btn-start-game').classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('btn-start-game').addEventListener('click', () => {
+      document.getElementById('host-lobby').classList.add('hidden');
+      document.getElementById('host-game').classList.remove('hidden');
+      sendQuestion();
+    });
+
+    function sendQuestion() {
+      const q = questions[currentQIndex];
+      document.getElementById('host-question-text').innerText = q.q;
+      document.getElementById('opt-a').innerText = q.a;
+      document.getElementById('opt-b').innerText = q.b;
+      document.getElementById('opt-c').innerText = q.c;
+      document.getElementById('opt-d').innerText = q.d;
+      
+      // 通知雲端伺服器，所有人切換到這一題
+      socket.emit('nextQuestion', { pin: ROOM_PIN, questionIndex: currentQIndex });
+    }
+
+    socket.on('answerReceived', (data) => {
+      const log = document.getElementById('host-answer-log');
+      const li = document.createElement('li');
+      li.innerText = `某位玩家 選擇了答案 [ ${data.answer} ]`;
+      log.appendChild(li);
+    });
+
+    // --- 玩家端邏輯 ---
+    document.getElementById('btn-join-room').addEventListener('click', () => {
+      const nickname = document.getElementById('input-name').value.trim();
+      const pin = document.getElementById('input-pin').value.trim();
+      if(!nickname) return alert('請輸入暱稱！');
+      
+      socket.emit('joinRoom', { pin: pin, nickname: nickname });
+      document.getElementById('player-footer-name').innerText = `玩家：${nickname}`;
+    });
+
+    socket.on('joinSuccess', () => {
+      document.getElementById('player-login').classList.add('hidden');
+      document.getElementById('player-wait').classList.remove('hidden');
+    });
+
+    socket.on('joinError', (msg) => { alert(msg); });
+
+    // 接收到主持人出題，手機端秀出按鈕
+    socket.on('showOptions', (data) => {
+      document.getElementById('player-wait').classList.add('hidden');
+      document.getElementById('player-game').classList.remove('hidden');
+      document.getElementById('player-status').innerText = "";
+    });
+
+    function submitAnswer(letter) {
+      socket.emit('submitAnswer', { pin: ROOM_PIN, answer: letter });
+      document.getElementById('player-status').innerText = `送出答案：${letter}，等待下一題...`;
+    }
+  </script>
+</body>
+</html>
